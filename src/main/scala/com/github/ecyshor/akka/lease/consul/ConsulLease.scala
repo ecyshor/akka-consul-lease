@@ -146,7 +146,7 @@ object ConsulLease {
     require(ttl > renewDuration)
     require(name.nonEmpty)
     require(lockDelay.toSeconds >= 0 && lockDelay.toSeconds <= 60)
-    val maxSessionRenewRetries: Long = ttl.toSeconds / renewDuration.toSeconds
+    val maxSessionRenewRetries: Long = ttl.toMillis / renewDuration.toMillis
   }
 
   object ConsulSessionConfig {

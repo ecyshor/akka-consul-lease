@@ -8,7 +8,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling._
-import com.github.ecyshor.akka.lease.consul.ConsulClient.Session.jsonReader
+import com.github.ecyshor.akka.lease.consul.ConsulClient.Session.jsonFormat
 import com.github.ecyshor.akka.lease.consul.ConsulClient._
 import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
 import com.typesafe.config.Config
@@ -41,7 +41,15 @@ class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: Actor
     doConsulCall[Seq[Session]](HttpRequest(
       method = HttpMethods.PUT,
       uri = Uri(s"$connectionUri/session/renew/${session.id}")
-    )).map(_ => Right(SessionRenewed)) //not currently interested in the response
+    )).map {
+      case Left(value) =>
+        value match {
+          case ConsulResponseFailure(_, code) if code == 404 =>
+            Right(SessionInvalidated)
+          case other => Left(other)
+        }
+      case Right(_) => Right(SessionRenewed)
+    }
   }
 
   def acquireLock(session: Session, key: String, owner: String): Future[Either[ConsulFailure, Boolean]] = ???
