@@ -1,4 +1,4 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.time.Instant
 import java.util.Date
@@ -8,11 +8,11 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling._
-import com.github.ecyshor.akka.lease.consul.ConsulClient.KeyResponse.keyResponseJsonFormat
-import com.github.ecyshor.akka.lease.consul.ConsulClient.Session.jsonFormat
-import com.github.ecyshor.akka.lease.consul.ConsulClient._
-import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
 import com.typesafe.config.{Config, ConfigFactory}
+import dev.nicu.akka.lease.consul.ConsulClient.KeyResponse.keyResponseJsonFormat
+import dev.nicu.akka.lease.consul.ConsulClient.Session.jsonFormat
+import dev.nicu.akka.lease.consul.ConsulClient._
+import dev.nicu.akka.lease.consul.ConsulLease.ConsulSessionConfig
 import spray.json.DefaultJsonProtocol._
 
 import scala.concurrent.Future
@@ -134,8 +134,9 @@ object ConsulClient {
           |}
           |""".stripMargin))
       ConsulClientConfig(config.getString("consul.scheme"), config.getString("consul.host"), {
-      if (config.hasPath("consul.port")) Some(config.getInt("consul.port")) else None
-    }, config.getDuration("consul.timeout").getSeconds.seconds)}
+        if (config.hasPath("consul.port")) Some(config.getInt("consul.port")) else None
+      }, config.getDuration("consul.timeout").getSeconds.seconds)
+    }
   }
 
   case class Session(id: SessionId, lastRenew: Date) {

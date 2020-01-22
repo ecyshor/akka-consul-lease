@@ -3,7 +3,7 @@ name := "akka-consul-lease"
 version := "0.1"
 
 scalaVersion := "2.13.1"
-organization := "com.github.ecyshor"
+organization := "dev.nicu"
 val akkaVersion = "2.6.1"
 val akkaHttpVersion = "10.1.11"
 libraryDependencies ++= Seq(

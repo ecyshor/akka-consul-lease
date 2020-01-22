@@ -1,8 +1,8 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import akka.actor.ActorSystem
 import akka.coordination.lease.LeaseTimeoutException
-import com.github.ecyshor.akka.lease.consul.ConsulClient.{ConsulFailure, ConsulTimeoutFailure}
+import dev.nicu.akka.lease.consul.ConsulClient.{ConsulFailure, ConsulTimeoutFailure}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}

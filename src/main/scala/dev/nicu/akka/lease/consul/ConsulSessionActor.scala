@@ -1,4 +1,4 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.time.Instant
 import java.util.Date
@@ -6,9 +6,9 @@ import java.util.Date
 import akka.actor.{Actor, ActorLogging, Props, Stash, Timers}
 import akka.event.LoggingReceive
 import akka.pattern.pipe
-import com.github.ecyshor.akka.lease.consul.ConsulClient.{ConsulFailure, Session, SessionInvalidated, SessionRenewed}
-import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
-import com.github.ecyshor.akka.lease.consul.ConsulSessionActor.{CreateSession, GetSession, RenewSession}
+import dev.nicu.akka.lease.consul.ConsulClient.{ConsulFailure, Session, SessionInvalidated, SessionRenewed}
+import dev.nicu.akka.lease.consul.ConsulLease.ConsulSessionConfig
+import dev.nicu.akka.lease.consul.ConsulSessionActor.{CreateSession, GetSession, RenewSession}
 
 import scala.concurrent.duration._
 

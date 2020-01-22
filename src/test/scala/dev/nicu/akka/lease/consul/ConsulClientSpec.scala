@@ -1,19 +1,19 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.time.Instant
 import java.util.{Date, UUID}
 
 import akka.actor.ActorSystem
+import akka.pattern.{after => delayed}
 import akka.testkit.TestKit
-import com.github.ecyshor.akka.lease.consul.ConsulClient.{ConsulClientConfig, Session, SessionInvalidated, SessionRenewed}
-import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
-import org.scalatest.{Assertion, OptionValues}
+import dev.nicu.akka.lease.consul.ConsulClient.{ConsulClientConfig, Session, SessionInvalidated, SessionRenewed}
+import dev.nicu.akka.lease.consul.ConsulLease.ConsulSessionConfig
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Assertion, OptionValues}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import akka.pattern.{after => delayed}
 
 class ConsulClientSpec extends TestKit(ActorSystem("consul-client-spec")) with AsyncFlatSpecLike with Matchers with OptionValues {
   val consulClient = new ConsulClient(ConsulClientConfig(

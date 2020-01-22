@@ -1,13 +1,13 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.time.Instant
 import java.util.Date
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestKit}
-import com.github.ecyshor.akka.lease.consul.ConsulClient._
-import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
-import com.github.ecyshor.akka.lease.consul.ConsulSessionActor.GetSession
+import dev.nicu.akka.lease.consul.ConsulClient._
+import dev.nicu.akka.lease.consul.ConsulLease.ConsulSessionConfig
+import dev.nicu.akka.lease.consul.ConsulSessionActor.GetSession
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually

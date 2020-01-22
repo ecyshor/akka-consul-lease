@@ -1,4 +1,4 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.time.Instant
 import java.util.Date
@@ -6,8 +6,8 @@ import java.util.Date
 import akka.actor.{ActorSystem, ExtendedActorSystem}
 import akka.coordination.lease.{LeaseSettings, LeaseTimeoutException}
 import akka.util.Timeout
-import com.github.ecyshor.akka.lease.consul.ConsulClient.{ConsulCallFailure, Session}
 import com.typesafe.config.ConfigFactory
+import dev.nicu.akka.lease.consul.ConsulClient.{ConsulCallFailure, Session}
 import org.scalamock.scalatest.AsyncMockFactory
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually._

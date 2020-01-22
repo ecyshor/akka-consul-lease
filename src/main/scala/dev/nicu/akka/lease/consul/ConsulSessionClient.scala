@@ -1,12 +1,12 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import akka.actor.{ActorNotFound, ActorRef, ActorSystem, InvalidActorNameException, Props}
 import akka.pattern.{ask, retry}
 import akka.util.Timeout
-import com.github.ecyshor.akka.lease.consul.ConsulClient.{ConsulFailure, Session}
-import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
-import com.github.ecyshor.akka.lease.consul.ConsulSessionActor.GetSession
 import com.typesafe.scalalogging.LazyLogging
+import dev.nicu.akka.lease.consul.ConsulClient.{ConsulFailure, Session}
+import dev.nicu.akka.lease.consul.ConsulLease.ConsulSessionConfig
+import dev.nicu.akka.lease.consul.ConsulSessionActor.GetSession
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

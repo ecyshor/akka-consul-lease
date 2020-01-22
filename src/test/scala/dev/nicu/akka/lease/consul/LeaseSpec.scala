@@ -1,4 +1,4 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.util.UUID
 

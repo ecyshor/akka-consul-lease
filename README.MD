@@ -6,7 +6,7 @@ Default config
 
 ```hocon
 my-lease {
-  lease-class = "com.github.ecyshor.akka.lease.consul.ConsulLease"
+  lease-class = "dev.nicu.akka.lease.consul.ConsulLease"
   heartbeat-timeout = 100s
   heartbeat-interval = 5s
   lease-operation-timeout = 1s

@@ -1,4 +1,4 @@
-package com.github.ecyshor.akka.lease.consul
+package dev.nicu.akka.lease.consul
 
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -8,10 +8,10 @@ import akka.coordination.lease.{LeaseException, LeaseSettings, LeaseTimeoutExcep
 import akka.stream.scaladsl.{BroadcastHub, Keep, Sink, Source}
 import akka.stream.{ActorAttributes, Supervision}
 import akka.util.Timeout
-import com.github.ecyshor.akka.lease.consul.ConsulClient._
-import com.github.ecyshor.akka.lease.consul.ConsulLease._
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
+import dev.nicu.akka.lease.consul.ConsulClient._
+import dev.nicu.akka.lease.consul.ConsulLease._
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{FiniteDuration, _}
