@@ -9,19 +9,21 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling._
 import com.github.ecyshor.akka.lease.consul.ConsulClient.Session.jsonFormat
+import com.github.ecyshor.akka.lease.consul.ConsulClient.KeyResponse.keyResponseJsonFormat
 import com.github.ecyshor.akka.lease.consul.ConsulClient._
 import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
 import com.typesafe.config.Config
-import spray.json.RootJsonReader
+import spray.json.DefaultJsonProtocol._
 
 import scala.concurrent.duration.{Duration, FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import spray.json.DefaultJsonProtocol._
 
-class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: ActorSystem) extends SprayJsonSupport {
+class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: ActorSystem) extends SprayJsonSupport with TimeoutSupport {
 
-  def createSession(config: ConsulSessionConfig)(implicit ec: ExecutionContext): Future[Either[ConsulFailure, Session]] = {
+  import actorSystem.dispatcher
+
+  def createSession(config: ConsulSessionConfig): Future[Either[ConsulFailure, Session]] = {
     doConsulCall[Session](HttpRequest(
       method = HttpMethods.PUT,
       uri = Uri(s"$connectionUri/session/create"),
@@ -37,7 +39,7 @@ class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: Actor
   }
 
 
-  def renewSession(session: Session)(implicit ec: ExecutionContext): Future[Either[ConsulFailure, SessionStatus]] = {
+  def renewSession(session: Session): Future[Either[ConsulFailure, SessionStatus]] = {
     doConsulCall[Seq[Session]](HttpRequest(
       method = HttpMethods.PUT,
       uri = Uri(s"$connectionUri/session/renew/${session.id}")
@@ -52,14 +54,43 @@ class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: Actor
     }
   }
 
-  def acquireLock(session: Session, key: String, owner: String): Future[Either[ConsulFailure, Boolean]] = ???
+  def acquireLock(session: Session, key: String, owner: String): Future[Either[ConsulFailure, Boolean]] = {
+    doConsulCall[String](HttpRequest(
+      method = HttpMethods.PUT,
+      uri = Uri(s"$connectionUri/kv/$key").withQuery(Uri.Query("acquire" -> session.id)),
+      entity = HttpEntity.apply(ContentTypes.`application/json`,
+        s"""
+           |{
+           |    "owner" : "$owner",
+           |    "locked_at" : "${Instant.now()}"
+           | }
+           |""".stripMargin)
+    )).map(_.map(_.trim.toBoolean))
+  }
 
-  def checkLock(key: String): Future[Either[ConsulFailure, Option[SessionId]]] = ???
+  def checkLock(key: String): Future[Either[ConsulFailure, Option[SessionId]]] = {
+    doConsulCall[Seq[KeyResponse]](HttpRequest(
+      method = HttpMethods.GET,
+      uri = Uri(s"$connectionUri/kv/$key"))
+    ).map(_.flatMap { response =>
+      if (response.length == 1) {
+        Right(response.head)
+      } else Left(ConsulResponseFailure(s"Consul responded with incorrect number of keys $response", 200))
+    }).map(_.map(_.session)).map {
+      case Left(ConsulResponseFailure(_, 404)) =>
+        Right(None)
+      case other => other
+    }
+  }
 
-  def releaseLock(session: Session): Future[Either[ConsulFailure, Unit]] = ???
+  def releaseLock(session: Session, key: String): Future[Either[ConsulFailure, Boolean]] =
+    doConsulCall[String](HttpRequest(
+      method = HttpMethods.PUT,
+      uri = Uri(s"$connectionUri/kv/$key").withQuery(Uri.Query("release" -> session.id))
+    )).map(_.map(_.trim.toBoolean))
 
-  private def doConsulCall[T: RootJsonReader](request: HttpRequest)(implicit ec: ExecutionContext) = {
-    runOperationWithTimeout {
+  private def doConsulCall[T](request: HttpRequest)(implicit unmarshaller: Unmarshaller[ResponseEntity, T]) = {
+    runOperationWithTimeout(clientConfig.timeout) {
       Http().singleRequest(
         request
       ).flatMap(response => {
@@ -80,12 +111,7 @@ class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: Actor
     s"${clientConfig.scheme}://${clientConfig.host}${clientConfig.port.map(port => s":$port").getOrElse("")}/v1"
   }
 
-  private def runOperationWithTimeout[T](op: Future[Either[ConsulFailure, T]])(implicit ec: ExecutionContext) = {
-    Future.firstCompletedOf(Seq(
-      akka.pattern.after(clientConfig.timeout, using = actorSystem.scheduler)(Future.successful(Left(ConsulTimeoutFailure(clientConfig.timeout)))),
-      op
-    ))
-  }
+
 }
 
 object ConsulClient {
@@ -108,9 +134,21 @@ object ConsulClient {
     def withinTtlAfterTimeout(ttl: Duration, timeout: Duration): Boolean = lastRenew.toInstant.plusSeconds(ttl.toSeconds).isAfter(Instant.now.plusSeconds(timeout.toSeconds))
   }
 
+  case class KeyResponse(session: Option[SessionId])
+
+  object KeyResponse {
+    implicit val keyResponseJsonFormat: RootJsonFormat[KeyResponse] = new RootJsonFormat[KeyResponse] {
+      override def read(json: JsValue): KeyResponse = {
+        KeyResponse(json.asJsObject.fields.get("Session").map(_.convertTo[String]))
+      }
+
+      override def write(obj: KeyResponse): JsValue = ??? // hack around marshallers requiring a format instead of a reader
+    }
+  }
+
   object Session extends DefaultJsonProtocol {
     implicit val jsonFormat: RootJsonFormat[Session] = new RootJsonFormat[Session] {
-      override def write(obj: Session): JsValue = ???
+      override def write(obj: Session): JsValue = ??? // hack around marshallers requiring a format instead of a reader
 
       override def read(json: JsValue): Session = Session(json.asJsObject.fields("ID").convertTo[String], Date.from(Instant.now()))
     }

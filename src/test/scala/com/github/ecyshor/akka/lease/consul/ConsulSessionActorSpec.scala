@@ -5,7 +5,7 @@ import java.util.Date
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestKit}
-import com.github.ecyshor.akka.lease.consul.ConsulClient.{ConsulTimeoutFailure, Session, SessionInvalidated, SessionRenewed}
+import com.github.ecyshor.akka.lease.consul.ConsulClient._
 import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
 import com.github.ecyshor.akka.lease.consul.ConsulSessionActor.GetSession
 import org.scalamock.scalatest.MockFactory
@@ -23,8 +23,6 @@ class ConsulSessionActorSpec extends TestKit(ActorSystem("consul-session-actor-s
   with Matchers
   with MockFactory
   with BeforeAndAfterAll with Eventually {
-
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   override def afterAll: Unit = {
     TestKit.shutdownActorSystem(system)
@@ -89,8 +87,8 @@ class ConsulSessionActorSpec extends TestKit(ActorSystem("consul-session-actor-s
       val secondsSession = session.copy(id = "other", lastRenew = Date.from(Instant.now().plusSeconds(20)))
       (client.createSession _).expects(consulSessionConfig) returning Future.successful(Right(session))
       (client.createSession _).expects(consulSessionConfig) returning Future.successful(Right(secondsSession))
-      (client.renewSession _).expects(session) returning Future.failed {
-        new IllegalArgumentException
+      (client.renewSession _).expects(session) returning Future.successful {
+        Left(ConsulCallFailure(new IllegalArgumentException))
       } repeated 2
       actor ! GetSession
       expectMsg(session)

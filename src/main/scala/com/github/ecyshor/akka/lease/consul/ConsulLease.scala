@@ -1,6 +1,5 @@
 package com.github.ecyshor.akka.lease.consul
 
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{ActorSystem, ExtendedActorSystem}
@@ -18,7 +17,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, consulClient: ConsulClient, consulSessionClient: ConsulSessionClient) extends Lease(settings) with LazyLogging {
+class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, consulClient: ConsulClient, consulSessionClient: ConsulSessionClient) extends Lease(settings) with LazyLogging with TimeoutSupport {
 
   import actorSystem.dispatcher
 
@@ -37,8 +36,10 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
   private val lockHeld: AtomicBoolean = new AtomicBoolean(false)
   private implicit val timeout: Timeout = Timeout(settings.timeoutSettings.operationTimeout)
 
-  private lazy val lockCheckStream = Source.tick(0.seconds, settings.timeoutSettings.heartbeatInterval, {})
+  //keep the stream alive to  account for external interventions as well
+  private lazy val (streamStop, lockCheckStream) = Source.tick(0.seconds, settings.timeoutSettings.heartbeatInterval, {})
     .mapAsync(1)(_ => {
+      logger.debug(s"Checking lock for $consulLockConfig")
       val consulCheck = consulClient.checkLock(consulLockConfig.lockPath) flatMap {
         case Right(value) =>
           value match {
@@ -51,35 +52,43 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
         case Left(value) =>
           Future.successful(Left(value))
       }
-      consulCheck andThen updateLockAsReleasedIfRequired
+      consulCheck andThen updateLockIfRequired()
     })
     .addAttributes(ActorAttributes.supervisionStrategy {
       case NonFatal(ex) =>
         logger.warn(s"Failed to check lock for config $consulLockConfig", ex)
         Supervision.Resume
     })
-    .toMat(BroadcastHub.sink(bufferSize = 1))(Keep.right).run()
+    .toMat(BroadcastHub.sink(bufferSize = 1))(Keep.both).run()
 
-  private lazy val runningStream = lockCheckStream.runWith(Sink.ignore) //used to always have at least once consumer for the broadcast
+  private lazy val runningStream = lockCheckStream.runWith(Sink.ignore).andThen {
+    case Failure(exception) =>
+      logger.error("Running check stream failed, marking as lost least", exception)
+    case Success(_) =>
+      logger.debug(s"Checked lock successfully $consulLockConfig")
+  } //used to always have at least once consumer for the broadcast
 
   override def acquire(): Future[Boolean] = {
-    unpack {
-      consulSessionClient.getCurrentSession()
-    }.flatMap {
-      session =>
-        unpack {
-          consulClient.acquireLock(session, consulLockConfig.lockPath, settings.ownerName)
-        }.map(acquired => {
-          lockHeld.set(acquired)
-          //reference the check stream to ensure is started
-          runningStream
-          acquired
-        })
+    runLeaseOpWithTimeout(settings.timeoutSettings.operationTimeout) {
+      unpack {
+        consulSessionClient.getCurrentSession()
+      }.flatMap {
+        session =>
+          unpack {
+            logger.info(s"Acquiring lock $consulLockConfig")
+            consulClient.acquireLock(session, consulLockConfig.lockPath, settings.ownerName)
+          }.map(acquired => {
+            lockHeld.set(acquired)
+            //reference the check stream to ensure is started
+            runningStream
+            acquired
+          })
+      }
     }
   }
 
 
-  override def acquire(leaseLostCallback: Option[Throwable] => Unit): Future[Boolean] = {
+  override def acquire(leaseLostCallback: Option[Throwable] => Unit): Future[Boolean] = runLeaseOpWithTimeout(settings.timeoutSettings.operationTimeout) {
     acquire().andThen {
       case Success(true) =>
         lockCheckStream.filterNot {
@@ -94,19 +103,20 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
     }
   }
 
-  override def release(): Future[Boolean] = {
+  override def release(): Future[Boolean] = runLeaseOpWithTimeout(settings.timeoutSettings.operationTimeout) {
     unpack {
       consulSessionClient.getCurrentSession()
     }.flatMap(session => {
-      unpack(consulClient.releaseLock(session).andThen {
-        case Success(_) => lockHeld.set(false)
-      })
-    }).map(_ => true)
+      logger.info("Releasing lock")
+      unpack(consulClient.releaseLock(session, consulLockConfig.lockPath)).andThen {
+        case Success(true) => lockHeld.set(false)
+      }
+    })
   }
 
   override def checkLease(): Boolean = lockHeld.get()
 
-  private def updateLockAsReleasedIfRequired: PartialFunction[Try[Either[ConsulFailure, Boolean]], Unit] = {
+  private def updateLockIfRequired(): PartialFunction[Try[Either[ConsulFailure, Boolean]], Unit] = {
     case Success(value) =>
       value match {
         case Left(failure) =>
@@ -114,8 +124,10 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
           lockHeld.set(false)
         case Right(isLockOwnedByUs) =>
           if (!isLockOwnedByUs) {
-            logger.warn(s"Marking lease ${settings.leaseName} for owner ${settings.ownerName} as released because another session helds the lock")
+            logger.warn(s"Marking lease ${settings.leaseName} for owner ${settings.ownerName} as released because another session holds the lock")
             lockHeld.set(false)
+          } else {
+            lockHeld.set(true)
           }
       }
     case Failure(failure) =>
@@ -128,7 +140,7 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
       case Left(value) =>
         value match {
           case ConsulCallFailure(failure) =>
-            throw new LeaseException(s"Failre in communicating with consul $failure")
+            throw new LeaseException(s"Failure in communicating with consul $failure")
           case ConsulResponseFailure(message, code) =>
             throw new LeaseException(s"Consul responded with code $code and $message")
           case ConsulTimeoutFailure(timeout) =>
@@ -136,6 +148,10 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
         }
       case Right(value) => value
     }
+  }
+
+  private[consul] def cancelChecks() = {
+    streamStop.cancel()
   }
 
 }
