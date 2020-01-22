@@ -8,15 +8,15 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling._
-import com.github.ecyshor.akka.lease.consul.ConsulClient.Session.jsonFormat
 import com.github.ecyshor.akka.lease.consul.ConsulClient.KeyResponse.keyResponseJsonFormat
+import com.github.ecyshor.akka.lease.consul.ConsulClient.Session.jsonFormat
 import com.github.ecyshor.akka.lease.consul.ConsulClient._
 import com.github.ecyshor.akka.lease.consul.ConsulLease.ConsulSessionConfig
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 import spray.json.DefaultJsonProtocol._
 
+import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, FiniteDuration, _}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 class ConsulClient(clientConfig: ConsulClientConfig)(implicit actorSystem: ActorSystem) extends SprayJsonSupport with TimeoutSupport {
@@ -123,9 +123,19 @@ object ConsulClient {
   case class ConsulClientConfig(scheme: String, host: String, port: Option[Int], timeout: FiniteDuration)
 
   object ConsulClientConfig {
-    def apply(config: Config): ConsulClientConfig = ConsulClientConfig(config.getString("consul.scheme"), config.getString("consul.host"), {
+    def apply(receivedConfig: Config): ConsulClientConfig = {
+      val config = receivedConfig.withFallback(ConfigFactory.parseString(
+        """
+          |consul {
+          | scheme = "http"
+          | host = "localhost"
+          | port = 8500
+          | timeout = 5 seconds
+          |}
+          |""".stripMargin))
+      ConsulClientConfig(config.getString("consul.scheme"), config.getString("consul.host"), {
       if (config.hasPath("consul.port")) Some(config.getInt("consul.port")) else None
-    }, config.getDuration("consul.timeout").getSeconds.seconds)
+    }, config.getDuration("consul.timeout").getSeconds.seconds)}
   }
 
   case class Session(id: SessionId, lastRenew: Date) {

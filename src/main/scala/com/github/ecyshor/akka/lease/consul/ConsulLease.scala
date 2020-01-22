@@ -10,6 +10,7 @@ import akka.stream.{ActorAttributes, Supervision}
 import akka.util.Timeout
 import com.github.ecyshor.akka.lease.consul.ConsulClient._
 import com.github.ecyshor.akka.lease.consul.ConsulLease._
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Future
@@ -37,20 +38,22 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
   private implicit val timeout: Timeout = Timeout(settings.timeoutSettings.operationTimeout)
 
   //keep the stream alive to  account for external interventions as well
-  private lazy val (streamStop, lockCheckStream) = Source.tick(0.seconds, settings.timeoutSettings.heartbeatInterval, {})
+  private lazy val (streamStop, lockCheckStream) = Source.tick(0.seconds, consulLockConfig.lockCheckInterval, {})
     .mapAsync(1)(_ => {
       logger.debug(s"Checking lock for $consulLockConfig")
-      val consulCheck = consulClient.checkLock(consulLockConfig.lockPath) flatMap {
-        case Right(value) =>
-          value match {
-            case Some(sessionWhichHoldsTheLease) =>
-              consulSessionClient.getCurrentSession().map(currentSession => {
-                currentSession.map(sessionWhichHoldsTheLease == _.id)
-              })
-            case None => Future.successful(Right(false))
-          }
-        case Left(value) =>
-          Future.successful(Left(value))
+      val consulCheck = runLeaseOpWithTimeout(settings.timeoutSettings.operationTimeout) {
+        consulClient.checkLock(consulLockConfig.lockPath) flatMap {
+          case Right(value) =>
+            value match {
+              case Some(sessionWhichHoldsTheLease) =>
+                consulSessionClient.getCurrentSession().map(currentSession => {
+                  currentSession.map(sessionWhichHoldsTheLease == _.id)
+                })
+              case None => Future.successful(Right(false))
+            }
+          case Left(value) =>
+            Future.successful(Left(value))
+        }
       }
       consulCheck andThen updateLockIfRequired()
     })
@@ -161,12 +164,28 @@ object ConsulLease {
   case class ConsulSessionConfig(lockDelay: FiniteDuration, name: String, ttl: FiniteDuration, renewDuration: FiniteDuration) {
     require(ttl > renewDuration)
     require(name.nonEmpty)
-    require(lockDelay.toSeconds >= 0 && lockDelay.toSeconds <= 60)
+    require(lockDelay.toSeconds >= 0 && lockDelay.toSeconds <= 60, "The lock delay is (heartbeat-interval + heartbeat-timeout) by default if not set explicitly using `lock-delay` and should not exceed the maximum of 60 seconds")
     val maxSessionRenewRetries: Long = ttl.toMillis / renewDuration.toMillis
   }
 
   object ConsulSessionConfig {
-    def fromLeaseSettings(settings: LeaseSettings) = ConsulSessionConfig(settings.timeoutSettings.heartbeatInterval.plus(settings.timeoutSettings.operationTimeout), s"${settings.ownerName}-akka-lease-${settings.leaseName}", settings.timeoutSettings.heartbeatTimeout, settings.timeoutSettings.heartbeatInterval)
+    def fromLeaseSettings(settings: LeaseSettings): ConsulSessionConfig = {
+      val config = settings.leaseConfig
+      ConsulSessionConfig(
+        extractDuration(settings.timeoutSettings.heartbeatInterval * 2, "lock-delay", config),
+        s"${settings.ownerName}-akka-lease-${settings.leaseName}",
+        extractDuration(settings.timeoutSettings.heartbeatTimeout, "session-ttl", config),
+        extractDuration(settings.timeoutSettings.heartbeatTimeout / 3, "session-renew-interval", config)
+      )
+    }
+
+    private def extractDuration(lockDelay: FiniteDuration, key: SessionId, config: Config) = {
+      if (config.hasPath(key)) {
+        config.getDuration(key).getSeconds.seconds
+      } else {
+        lockDelay
+      }
+    }
   }
 
   case class ConsulLockConfig(lockPath: String, lockCheckInterval: FiniteDuration) {
