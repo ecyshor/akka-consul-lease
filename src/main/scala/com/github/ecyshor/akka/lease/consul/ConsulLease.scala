@@ -10,7 +10,7 @@ import akka.stream.{ActorAttributes, Supervision}
 import akka.util.Timeout
 import com.github.ecyshor.akka.lease.consul.ConsulClient._
 import com.github.ecyshor.akka.lease.consul.ConsulLease._
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Future
@@ -23,7 +23,10 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
   import actorSystem.dispatcher
 
   def this(settings: LeaseSettings, actorSystem: ExtendedActorSystem, consulClient: ConsulClient) {
-    this(settings, actorSystem, consulClient, ConsulSessionClient(actorSystem, consulClient, ConsulSessionConfig.fromLeaseSettings(settings)))
+    this(settings, actorSystem, consulClient, ConsulSessionClient(actorSystem, consulClient, ConsulSessionConfig.fromLeaseSettings(settings), settings.leaseConfig.withFallback(ConfigFactory.parseString(
+      """
+        |session-actor-name = "akka-lease-consul-session-actor"
+        |""".stripMargin)).getString("session-actor-name")))
   }
 
   def this(settings: LeaseSettings, actorSystem: ExtendedActorSystem) {
@@ -32,7 +35,7 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
 
   private implicit val system: ActorSystem = actorSystem
 
-  private val consulLockConfig = ConsulLockConfig(s"akka/leases/${settings.leaseName}", settings.timeoutSettings.heartbeatInterval)
+  private val consulLockConfig = ConsulLockConfig(settings)
 
   private val lockHeld: AtomicBoolean = new AtomicBoolean(false)
   private implicit val timeout: Timeout = Timeout(settings.timeoutSettings.operationTimeout)
@@ -81,6 +84,7 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
             logger.info(s"Acquiring lock $consulLockConfig")
             consulClient.acquireLock(session, consulLockConfig.lockPath, settings.ownerName)
           }.map(acquired => {
+            logger.info(s"Acquired lock[$acquired] $consulLockConfig")
             lockHeld.set(acquired)
             //reference the check stream to ensure is started
             runningStream
@@ -112,7 +116,9 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
     }.flatMap(session => {
       logger.info("Releasing lock")
       unpack(consulClient.releaseLock(session, consulLockConfig.lockPath)).andThen {
-        case Success(true) => lockHeld.set(false)
+        case Success(true) =>
+          logger.info(s"Lock released $consulLockConfig")
+          lockHeld.set(false)
       }
     })
   }
@@ -127,7 +133,8 @@ class ConsulLease(settings: LeaseSettings, actorSystem: ExtendedActorSystem, con
           lockHeld.set(false)
         case Right(isLockOwnedByUs) =>
           if (!isLockOwnedByUs) {
-            logger.warn(s"Marking lease ${settings.leaseName} for owner ${settings.ownerName} as released because another session holds the lock")
+            if (lockHeld.get())
+              logger.warn(s"Marking lease ${settings.leaseName} for owner ${settings.ownerName} as released because another session holds the lock")
             lockHeld.set(false)
           } else {
             lockHeld.set(true)
@@ -191,6 +198,16 @@ object ConsulLease {
   case class ConsulLockConfig(lockPath: String, lockCheckInterval: FiniteDuration) {
     require(lockPath.nonEmpty)
     require(lockCheckInterval.toSeconds > 0)
+  }
+
+  object ConsulLockConfig {
+    def apply(settings: LeaseSettings): ConsulLockConfig = {
+      val config = settings.leaseConfig.withFallback(ConfigFactory.parseString(
+        """
+          |kv-prefix = akka/leases
+          |""".stripMargin))
+      new ConsulLockConfig(s"${config.getString("kv-prefix").stripSuffix("/")}/${settings.leaseName}", settings.timeoutSettings.heartbeatInterval)
+    }
   }
 
 }

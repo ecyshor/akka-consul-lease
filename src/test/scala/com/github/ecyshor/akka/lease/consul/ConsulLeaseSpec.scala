@@ -13,7 +13,6 @@ import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import akka.pattern.after
 import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.{ExecutionContext, Future}

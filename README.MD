@@ -2,6 +2,33 @@
 
 ### Usage
 
+Default config
+
+```hocon
+my-lease {
+  lease-class = "com.github.ecyshor.akka.lease.consul.ConsulLease"
+  heartbeat-timeout = 100s
+  heartbeat-interval = 5s
+  lease-operation-timeout = 1s
+  kv-prefix = akka/leases
+  consul {
+   scheme = "http"
+   host = "localhost"
+   port = 8500
+   timeout = 5 seconds
+  }
+}
+```
+
+```scala
+import akka.actor.ActorSystem
+import akka.coordination.lease.scaladsl.LeaseProvider
+val system = ???
+LeaseProvider(system).getLease("my-lease-name", "my-lease", "owner")
+```
+
+Also check [LeaseSpec](src/test/scala/com/github/ecyshor/akka/lease/consul/LeaseSpec.scala)
+
 ### Implementation
 
 The lease is implemented according to the [Akka documentation](https://doc.akka.io/docs/akka/current/coordination.html).
@@ -42,4 +69,6 @@ Resources here:
 | consul.host | localhost |  | |
 | consul.port | 8500 |  | |
 | consul.timeout | 5 seconds |     | |
+| kv-prefix | akka/leases/ |   The kv prefix to use to create the lock path. The prefix is suffixed by the lease name  | Warning: Changing the prefix basically creates a new lease |
+| session-actor-name | akka-lease-consul-session-actor |   The name of the actor used to handle consul sessions. Ensures only one with the same name exists on the same actor system  | Can be used to have multiple sessions on the same node if needed but it doesn't make sense in most cases as the node is the owner and we want to share the same session |
 
