@@ -28,6 +28,7 @@ publishMavenStyle := true
 licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
 
 import xerial.sbt.Sonatype._
+publishTo := sonatypePublishToBundle.value
 
 sonatypeProjectHosting := Some(GitHubHosting("ecyshor", "akka-consul-lease", "Nicu Reut", "contact@nicu.dev"))
 
