@@ -172,6 +172,8 @@ class ConsulLeaseSpec extends AsyncFlatSpec with Matchers with AsyncMockFactory 
           |lease-operation-timeout = 1 seconds
           |""".stripMargin), "test-lease", "test-owner"
     ), system, client, sessionClient)
-    test(lease).andThen(_ => lease.cancelChecks())
+    test(lease).andThen {
+      case _ => lease.cancelChecks()
+    }
   }
 }
