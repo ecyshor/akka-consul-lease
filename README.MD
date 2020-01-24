@@ -2,6 +2,10 @@
 
 ### Usage
 
+Add dependency(available for scala 2.12 and 2.13):
+
+```"dev.nicu.akka" %% "akka-consul-lease" % "0.1.0"```
+
 Default config
 
 ```hocon
