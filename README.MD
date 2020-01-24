@@ -2,7 +2,7 @@
 
 ### Usage
 
-Add dependency(available for scala 2.12 and 2.13):
+Add dependency (available for scala 2.12 and 2.13):
 
 ```"dev.nicu.akka" %% "akka-consul-lease" % "0.1.0"```
 
@@ -34,6 +34,8 @@ LeaseProvider(system).getLease("my-lease-name", "my-lease", "owner")
 Also check [LeaseSpec](src/test/scala/com/github/ecyshor/akka/lease/consul/LeaseSpec.scala)
 
 ### Implementation
+
+[Blog post](https://nicu.dev/posts/akka-consul-lease)
 
 The lease is implemented according to the [Akka documentation](https://doc.akka.io/docs/akka/current/coordination.html).
 
