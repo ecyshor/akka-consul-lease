@@ -23,14 +23,6 @@ class LeaseSpec extends TestKit(ActorSystem("consul-client-spec")) with AsyncFla
     oneLeaseAcquiresTheLock(lease1, lease2, lease3)
   }
 
-  private def oneLeaseAcquiresTheLock(lease1: Lease, lease2: Lease, lease3: Lease) = {
-    Future.sequence(Seq(lease1.acquire(), lease2.acquire(), lease3.acquire())).map { acquired => {
-      acquired should contain allElementsOf Seq(true, false, false)
-      acquired should contain theSameElementsInOrderAs Seq(lease1.checkLease(), lease2.checkLease(), lease3.checkLease())
-    }
-    }
-  }
-
   it should "be acquired by another owner" in {
     val leaseName = UUID.randomUUID().toString
     val lease1 = LeaseProvider(system).getLease(leaseName, "test-lease-1", "owner1")
@@ -46,5 +38,15 @@ class LeaseSpec extends TestKit(ActorSystem("consul-client-spec")) with AsyncFla
     }
     }
   }
+
+
+  private def oneLeaseAcquiresTheLock(lease1: Lease, lease2: Lease, lease3: Lease) = {
+    Future.sequence(Seq(lease1.acquire(), lease2.acquire(), lease3.acquire())).map { acquired => {
+      acquired should contain allElementsOf Seq(true, false, false)
+      acquired should contain theSameElementsInOrderAs Seq(lease1.checkLease(), lease2.checkLease(), lease3.checkLease())
+    }
+    }
+  }
+
 
 }
