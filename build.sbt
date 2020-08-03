@@ -4,7 +4,7 @@ name := "akka-consul-lease"
 
 scalaVersion := "2.13.1"
 organization := "dev.nicu.akka"
-val akkaVersion = "2.6.5"
+val akkaVersion = "2.6.8"
 val akkaHttpVersion = "10.1.12"
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-coordination" % akkaVersion,
@@ -13,8 +13,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
   "ch.qos.logback" % "logback-classic" % "1.2.3" % "test",
-  "org.scalatest" %% "scalatest" % "3.2.0" % "test",
-  "org.scalamock" %% "scalamock" % "4.4.0" % "test",
+  "org.scalatest" %% "scalatest" % "3.1.2" % "test",
+  "org.scalamock" %% "scalamock" % "5.0.0" % "test",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test"
 )
 
