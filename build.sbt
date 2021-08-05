@@ -5,7 +5,7 @@ name := "akka-consul-lease"
 scalaVersion := "2.13.1"
 organization := "dev.nicu.akka"
 val akkaVersion = "2.6.10"
-val akkaHttpVersion = "10.2.1"
+val akkaHttpVersion = "10.2.6"
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-coordination" % akkaVersion,
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
