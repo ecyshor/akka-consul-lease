@@ -2,7 +2,7 @@ name := "akka-consul-lease"
 
 //enablePlugins(Sonatype, ReleasePlugin, SbtPgp)
 
-scalaVersion := "2.13.1"
+scalaVersion := "2.13.10"
 organization := "dev.nicu.akka"
 val akkaVersion = "2.6.10"
 val akkaHttpVersion = "10.2.1"
@@ -12,13 +12,13 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-  "ch.qos.logback" % "logback-classic" % "1.2.3" % "test",
+  "ch.qos.logback" % "logback-classic" % "1.2.12" % "test",
   "org.scalatest" %% "scalatest" % "3.1.2" % "test",
   "org.scalamock" %% "scalamock" % "5.0.0" % "test",
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test"
 )
 
-crossScalaVersions := Seq("2.12.9", "2.13.1")
+crossScalaVersions := Seq("2.12.9", "2.13.10")
 
 //sonatype config
 sonatypeProfileName := "dev.nicu.akka"
