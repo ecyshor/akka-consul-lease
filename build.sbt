@@ -2,7 +2,7 @@ name := "akka-consul-lease"
 
 //enablePlugins(Sonatype, ReleasePlugin, SbtPgp)
 
-scalaVersion := "2.13.10"
+scalaVersion := "2.13.13"
 organization := "dev.nicu.akka"
 val akkaVersion = "2.6.10"
 val akkaHttpVersion = "10.2.1"
@@ -18,7 +18,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test"
 )
 
-crossScalaVersions := Seq("2.12.9", "2.13.10")
+crossScalaVersions := Seq("2.12.9", "2.13.13")
 
 //sonatype config
 sonatypeProfileName := "dev.nicu.akka"
