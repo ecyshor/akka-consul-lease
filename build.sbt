@@ -18,7 +18,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test"
 )
 
-crossScalaVersions := Seq("2.12.9", "2.13.10")
+crossScalaVersions := Seq("2.12.19", "2.13.10")
 
 //sonatype config
 sonatypeProfileName := "dev.nicu.akka"
